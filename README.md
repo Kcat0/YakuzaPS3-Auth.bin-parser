@@ -1,0 +1,1 @@
+# YakuzaPS3-Auth.bin-parser
