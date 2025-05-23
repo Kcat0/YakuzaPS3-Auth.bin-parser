@@ -1,36 +1,43 @@
 # YakuzaPS3-AuthParser
 
-A Python-based tool for extracting and re‑injecting text from/to **Auth.bin** files used in PS3 releases of the *Yakuza* series. This utility is designed to assist fan‑translation workflows by automating string extraction, JSON export, and reinsertion with automatic padding and pointer updates.
+A Python-based tool for **extracting** and **injecting** text from `Auth.bin` files used in PS3 releases of the *Yakuza* series. Built for fan-translation workflows, this script exports editable JSON with hex offsets and reinserts translations while preserving structure and pointer integrity.
 
 ## Features
 
-* **Header validation**: Ensures the file starts with `AUTH` signature (bytes `41 55 54 48`).
-* **Pointer resolution**: Reads a big‑endian 2‑byte pointer at offset `0xAA`, navigates to the text payload.
-* **String parsing**:
+* **Header validation**
+  Verifies that the file begins with the `AUTH` signature (ASCII: `41 55 54 48`).
 
-  * Reads the count of strings (2 bytes BE after 34 bytes offset).
-  * Locates each string (null‑terminated), extracts it, and computes block padding (16-byte alignment + 240-byte skip + 16-byte data block).
-* **JSON export**: Outputs `FILENAME_translated.json` containing an array of objects:
+* **Pointer resolution**
+  Reads a 2-byte big-endian pointer at offset `0xAA` to locate the start of the string table.
+
+* **String parsing**
+
+  1. Reads the string count (2 bytes, big-endian) located 34 bytes after the pointer offset.
+  2. Iterates over null-terminated strings starting from the calculated string data offset.
+  3. Decodes each string as Latin-1, replaces `0xB7` with em dash (`—`), and filters out raw entries ≤2 bytes.
+
+* **JSON export**
+  Outputs a file named `FILENAME_translated.json` containing an array of objects with hex offsets:
 
   ```json
   [
-    { "offset": "0x012A",
-      "string": "Original text here" }
+    {
+      "offset": "0x1F80",
+      "string": "This Kazuma Kiryu?"
+    },
+    {
+      "offset": "0x2090",
+      "string": "Ex-Chairman of the Tojo?"
+    }
   ]
   ```
-* **Injection**:
 
-  * Reads the JSON, sorts by offset, and splices in translated strings.
-  * Recalculates block padding (expanding or shrinking as needed).
-  * Tracks filesize changes and updates two headers:
+* **Injection**
 
-    * 2‑byte BE pointer at offset `0x12` → start of final 16‑byte block.
-    * 2‑byte BE value at offset `0x3A` → last byte index of the file.
-
-## Requirements
-
-* Python 3.6+
-* No external dependencies (uses only Python stdlib)
+  1. Reads and parses the JSON, converting each `offset` to an integer.
+  2. Encodes and inserts the new string in place, maintaining padding and block boundaries.
+  3. Reapplies 4-byte duration values preceding each string.
+  4. Writes the result to `FILENAME_injected.bin`.
 
 ## Usage
 
@@ -39,21 +46,21 @@ A Python-based tool for extracting and re‑injecting text from/to **Auth.bin** 
 python YakuzaPS3_AuthParser.py extract path/to/Auth.bin
 # → generates path/to/Auth_translated.json
 
-# Edit the JSON: change each "string" value to your translation.
+# Edit the JSON: update each "string" value to your translation
 
-# Inject translations back into a new .bin
+# Inject translations into a new binary
 python YakuzaPS3_AuthParser.py inject path/to/Auth.bin path/to/Auth_translated.json
 # → generates path/to/Auth_injected.bin
 ```
 
 ## Notes
 
-* Offsets in the JSON are in hexadecimal for clarity.
-* You can exceed the original text length; the script will adjust padding and file size accordingly.
-* Always backup your original `Auth.bin` before injecting.
-* Test the injected file in‑game to confirm correctness.
+* All `offset` values in the JSON are hexadecimal.
+* The script checks available space and adjusts padding automatically.
+* Make backups of your original `Auth.bin` file before injecting.
+* Always test injected files in-game to ensure correctness.
 
 ## Disclaimer
 
-* This tool **only** replaces text, adjusts padding, and updates two header pointers.
-* Use at your own risk and verify output manually in the game.
+* This tool **only** replaces string content and preserves internal file consistency.
+* Use at your own risk. Validate the output in context (e.g., in-game behavior).
